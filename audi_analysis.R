@@ -368,3 +368,224 @@ if(p_value < alpha) {
 
 cat("=====================================================================\n")
 
+# ===============================================================================
+# SECTION 9: EFFECT SIZE (Cohen's d)
+# ===============================================================================
+
+cat("\n=== EFFECT SIZE (Cohen's d) ===\n")
+
+# Calculate pooled standard deviation
+n1 <- length(automatic_prices)
+n2 <- length(manual_prices)
+sd1 <- sd(automatic_prices)
+sd2 <- sd(manual_prices)
+
+pooled_sd <- sqrt(((n1-1)*sd1^2 + (n2-1)*sd2^2) / (n1+n2-2))
+cohens_d <- mean_diff / pooled_sd
+
+cat("Cohen's d:", round(cohens_d, 4), "\n")
+cat("Interpretation: ")
+if(abs(cohens_d) < 0.2) {
+  cat("Negligible effect\n")
+} else if(abs(cohens_d) < 0.5) {
+  cat("Small effect\n")
+} else if(abs(cohens_d) < 0.8) {
+  cat("Medium effect\n")
+} else {
+  cat("Large effect\n")
+}
+
+# ===============================================================================
+# SECTION 10: ADDITIONAL STATISTICAL ANALYSIS (CORRELATION)
+# ===============================================================================
+
+cat("\n")
+cat("=====================================================================\n")
+cat("SUPPLEMENTARY ANALYSIS: CORRELATION\n")
+cat("=====================================================================\n\n")
+
+# Correlation between numerical variables
+numerical_vars <- audi_data %>%
+  select(year, price, mileage, tax, mpg, engineSize, age) %>%
+  na.omit()
+
+cat("=== CORRELATION MATRIX ===\n")
+cor_matrix <- cor(numerical_vars)
+print(round(cor_matrix, 3))
+
+# Visualize correlation matrix
+corrplot(cor_matrix, method = "color", type = "upper",
+         addCoef.col = "black", number.cex = 0.7,
+         tl.col = "black", tl.srt = 45,
+         title = "Correlation Matrix of Numerical Variables",
+         mar = c(0,0,2,0))
+
+# Test specific correlations
+cat("\n=== CORRELATION TEST: Price vs Mileage ===\n")
+cor_test_mileage <- cor.test(audi_data$price, audi_data$mileage, 
+                              method = "pearson")
+print(cor_test_mileage)
+
+cat("\n=== CORRELATION TEST: Price vs Age ===\n")
+cor_test_age <- cor.test(audi_data$price, audi_data$age, 
+                         method = "pearson")
+print(cor_test_age)
+
+# ===============================================================================
+# SECTION 11: CONTINGENCY TABLE ANALYSIS (PROPORTION TEST)
+# ===============================================================================
+
+cat("\n")
+cat("=====================================================================\n")
+cat("SUPPLEMENTARY ANALYSIS: CHI-SQUARE TEST OF INDEPENDENCE\n")
+cat("=====================================================================\n\n")
+
+cat("Research Question: Is there an association between transmission type\n")
+cat("and fuel type in Audi vehicles?\n\n")
+
+# Create contingency table
+contingency_table <- table(audi_main$transmission, audi_main$fuelType)
+cat("=== CONTINGENCY TABLE ===\n")
+print(contingency_table)
+
+cat("\n=== PROPORTIONS (Row Percentages) ===\n")
+prop_table <- prop.table(contingency_table, margin = 1) * 100
+print(round(prop_table, 2))
+
+# Chi-square test
+cat("\n=== CHI-SQUARE TEST OF INDEPENDENCE ===\n")
+chi_test <- chisq.test(contingency_table)
+print(chi_test)
+
+cat("\n=== EXPECTED FREQUENCIES ===\n")
+print(round(chi_test$expected, 2))
+
+if(chi_test$p.value < 0.05) {
+  cat("\nDECISION: Reject H0 (p < 0.05)\n")
+  cat("CONCLUSION: There IS a significant association between\n")
+  cat("transmission type and fuel type.\n")
+} else {
+  cat("\nDECISION: Fail to reject H0 (p ≥ 0.05)\n")
+  cat("CONCLUSION: There is NO significant association between\n")
+  cat("transmission type and fuel type.\n")
+}
+
+# ===============================================================================
+# SECTION 12: REGRESSION ANALYSIS
+# ===============================================================================
+
+cat("\n")
+cat("=====================================================================\n")
+cat("SUPPLEMENTARY ANALYSIS: LINEAR REGRESSION\n")
+cat("=====================================================================\n\n")
+
+cat("Model: Predicting Price based on Mileage, Year, and Transmission\n\n")
+
+# Build regression model
+model <- lm(price ~ mileage + year + transmission, data = audi_main)
+cat("=== REGRESSION MODEL SUMMARY ===\n")
+summary(model)
+
+# Model diagnostics
+cat("\n=== MODEL DIAGNOSTICS ===\n")
+par(mfrow = c(2, 2))
+plot(model)
+par(mfrow = c(1, 1))
+
+# ===============================================================================
+# SECTION 13: SUMMARY AND EXPORT RESULTS
+# ===============================================================================
+
+cat("\n")
+cat("=====================================================================\n")
+cat("ANALYSIS COMPLETE\n")
+cat("=====================================================================\n\n")
+
+# Create summary data frame
+summary_results <- data.frame(
+  Metric = c("Sample Size (Automatic)", 
+             "Sample Size (Manual)",
+             "Mean Price (Automatic)",
+             "Mean Price (Manual)",
+             "Difference in Means",
+             "t-statistic",
+             "p-value",
+             "Cohen's d",
+             "95% CI Lower",
+             "95% CI Upper"),
+  Value = c(n1,
+            n2,
+            round(mean_automatic, 2),
+            round(mean_manual, 2),
+            round(mean_diff, 2),
+            round(t_statistic, 4),
+            format(p_value, scientific = FALSE, digits = 6),
+            round(cohens_d, 4),
+            round(conf_int[1], 2),
+            round(conf_int[2], 2))
+)
+
+cat("=== SUMMARY OF KEY RESULTS ===\n")
+print(summary_results)
+
+# Save summary to CSV
+write.csv(summary_results, "analysis_summary.csv", row.names = FALSE)
+cat("\nSummary results saved to: analysis_summary.csv\n")
+
+# Save descriptive statistics to CSV
+write.csv(desc_stats, "descriptive_statistics.csv", row.names = FALSE)
+cat("Descriptive statistics saved to: descriptive_statistics.csv\n")
+
+# Save all plots to separate files
+# 1. Price Distribution Histogram
+ggsave("plot1_price_distribution.png", p1, width = 10, height = 6)
+
+# 2. Box Plot
+ggsave("plot2_price_boxplot.png", p2, width = 10, height = 6)
+
+# 3. Violin Plot
+ggsave("plot3_price_violin.png", p3, width = 10, height = 6)
+
+# 4. Density Plot
+ggsave("plot4_price_density.png", p4, width = 10, height = 6)
+
+# 5. Scatter Plot
+ggsave("plot5_price_mileage_scatter.png", p5, width = 10, height = 6)
+
+# 6. Bar Plot
+ggsave("plot6_fuel_transmission_bar.png", p6, width = 10, height = 6)
+
+# 7. Correlation Matrix
+png("plot7_correlation_matrix.png", width = 800, height = 800)
+corrplot(cor_matrix, method = "color", type = "upper",
+         addCoef.col = "black", number.cex = 0.7,
+         tl.col = "black", tl.srt = 45,
+         title = "Correlation Matrix of Numerical Variables",
+         mar = c(0,0,2,0))
+dev.off()
+
+# 8. Regression Model Diagnostics (Separate files)
+# Reset par just in case
+par(mfrow = c(1, 1))
+
+png("plot8_residuals_vs_fitted.png", width = 800, height = 600)
+plot(model, which = 1)
+dev.off()
+
+png("plot9_qq_residuals.png", width = 800, height = 600)
+plot(model, which = 2)
+dev.off()
+
+png("plot10_scale_location.png", width = 800, height = 600)
+plot(model, which = 3)
+dev.off()
+
+png("plot11_residuals_leverage.png", width = 800, height = 600)
+plot(model, which = 5)
+dev.off()
+
+cat("\nAll visualizations saved as separate PNG files\n")
+
+cat("\n=====================================================================\n")
+cat("END OF ANALYSIS\n")
+cat("=====================================================================\n")
